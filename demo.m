@@ -21,7 +21,7 @@ end
 
 %% TV sparsity denoising
 rank   = [13,13,13];
-pp=1;
+pp=2;
 
 for i=1:p
     bandp = Ohsi(:,:,i);
