@@ -1,4 +1,4 @@
-function [ output_image,output_X,output_L,U_x,V_x] =TVF(oriData3_noise,tau,r,pp,F1,F2)
+function [output_image] =TVF_new(oriData3_noise,tau,r,pp,F1,F2)
 tol     = 1e-6;
 maxIter = 50;
 rho     = 1.5;
@@ -28,7 +28,6 @@ determ  =  Eny_x + Eny_y + Eny_z;
 X              = randn(M*N,p);
 E              = zeros(M*N,p);
 L              = D-X-E;
-H              = F1'*L*F2;
 % U_x and V_x initial
 tv_x           = diff_x(X,sizeD);
 tv_x           = reshape(tv_x,[M*N,p]);
@@ -47,11 +46,10 @@ tv_z           = reshape(tv_z,[M*N,p]);
 [U_z,S_z,V_z]  = svd(tv_z,'econ');
 U_z            = U_z(:,1:r(3))*S_z(1:r(3),1:r(3));
 V_z            = V_z(:,1:r(3));
-M1 =zeros(size(D));  % multiplier for D-X-L-E
+M1 =zeros(size(D));  % multiplier for D-F1*H*F2'-L-E;
 M2 =zeros(size(D));  % multiplier for Dx_X-U_x*V_x
 M3 =zeros(size(D));  % multiplier for Dy_X-U_y*V_y
 M4 =zeros(size(D));  % multiplier for Dz_X-U_z*V_z
-M5 =zeros(size(D));  % multiplier for L=F1*H*F2'---1
 % main loop
 iter = 0;
 tic
@@ -89,10 +87,9 @@ while iter<maxIter
     V_y           = u*v';
     [u,~,v]       = svd(tmp_z'*U_z,'econ');
     V_z           = u*v';
-    %% -Update L 
-    L = (D -X -E +F1*H*F2' +(M1 -M5)/mu)/2;
     %% -Update H 
-    H = F1'*svdthresh(L + M5/mu, au/mu)*F2;
+    H = F1'*svdthresh(D -X -E + M1/mu, au/mu)*F2;
+    L = F1*H*F2';
     %% -Update E 
     if (pp==1)
         E             = softthre(D-X-L+M1/mu, lambda/mu);
@@ -107,11 +104,10 @@ while iter<maxIter
     leq2 = reshape(diff_x(X,sizeD),[M*N,p])- U_x*V_x';
     leq3 = reshape(diff_y(X,sizeD),[M*N,p])- U_y*V_y';
     leq4 = reshape(diff_z(X,sizeD),[M*N,p])- U_z*V_z';
-    leq5 = L - F1*H*F2';
     stopC1 = norm(leq1,'fro')/normD;
     stopC2 = max(abs(leq2(:)));
+    %stopC3 = norm(leq3,'fro')/normD;
     stopC4 = norm(leq4,'fro')/normD;
-    stopC5 = norm(leq5,'fro')/normD;
     disp(['iter ' num2str(iter) ',mu=' num2str(mu,'%2.1e')  ...
             ',Y-X-L-E=' num2str(stopC1,'%2.3e') ',||DX-UV||=' num2str(stopC2,'%2.3e')...
             ',|DZ-UV|' num2str(stopC4,'%2.3e')]);
@@ -122,11 +118,8 @@ while iter<maxIter
         M2 = M2 + mu*leq2;
         M3 = M3 + mu*leq3;
         M4 = M4 + mu*leq4;
-        M5 = M5 + mu*leq5;
         mu = min(max_mu,mu*rho); 
     end 
 end
 output_image = reshape(X+L,[M,N,p]);
-output_X = reshape(X,[M,N,p]);
-output_L = reshape(L,[M,N,p]);
 end
